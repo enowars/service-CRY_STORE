@@ -62,7 +62,7 @@ def send_flag(flag_id):
 def send_flag_ids(tick):
 	global conn
 	global cursor
-	cursor.execute('select rowid from flags where round = ' + tick + ';')
+	cursor.execute('select rowid from flags where tick = ' + tick + ';')
 	flag_ids = cursor.fetchall()
 	return b':'.join([tick.encode() for slag_id in flag_ids])
 
