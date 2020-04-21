@@ -68,7 +68,7 @@ def send_flag_ids(tick):
 
 if __name__ == "__main__":
 	while True:
-		input_data = input("command:").strip()
+		input_data = input("command:").strip().encode()
 		if not input_data:
 			sys.exit(0)
 		res = process_command(input_data)
