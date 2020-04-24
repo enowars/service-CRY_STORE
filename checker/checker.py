@@ -44,21 +44,28 @@ class CryStoreChecker(BaseChecker):
                     if nothing is returned, the service status is considered okay.
                     the preferred way to report errors in the service is by raising an appropriate enoexception
         """
-        if self.flag_idx == 0:
-            content = b'receive:' + self.flag.encode() + (b':%d' % self.flag_round)
-            signature = hex(key.sign(content, 1)[0])[2:].encode()
-            input_data = content + b' ' + signature
+        try:
+            if self.flag_idx == 0:
+                content = b'receive:' + self.flag.encode() + (b':%d' % self.flag_round)
+                signature = hex(key.sign(content, 1)[0])[2:].encode()
+                input_data = content + b' ' + signature
 
-            conn = self.connect()
-            expect_command_prompt(conn)
-            conn.write(input_data + b"\n")
-            ret_id = expect_command_prompt(conn)
-            print(ret_id)
-            ret_id = int(ret_id .split(b'id:')[1].split(b'\n')[0].decode())
-            conn.close()
+                conn = self.connect()
+                expect_command_prompt(conn)
+                conn.write(input_data + b"\n")
+                ret_id = expect_command_prompt(conn)
+                print(ret_id)
+                ret_id = int(ret_id .split(b'id:')[1].split(b'\n')[0].decode())
+                conn.close()
 
-            self.team_db[self.flag] = ret_id    
+                self.team_db[self.flag] = ret_id    
 
+
+        except EOFError:
+            raise OfflineException("Encountered unexpected EOF")
+        except UnicodeError:
+            self.debug("UTF8 Decoding-Error")
+            raise BrokenServiceException("Fucked UTF8")
 
     def getflag(self):  # type: () -> None
         """
@@ -96,7 +103,7 @@ class CryStoreChecker(BaseChecker):
                 cipher2 = DES.new(b'\x00' + des_key[7:14])
                 #encode the flag with triple-DES
                 flag = cipher1.decrypt(cipher2.encrypt(cipher1.decrypt(unhexlify(enc_flag))))
-                flag = flag.split("\0")[0].decode()
+                flag = flag.split(b"\0")[0].decode()
                 print(flag, self.flag)
                 if not flag == self.flag:
                     raise BrokenServiceException("Resulting flag was found to be incorrect")
