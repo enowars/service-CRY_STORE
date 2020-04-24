@@ -95,7 +95,8 @@ class CryStoreChecker(BaseChecker):
                 cipher1 = DES.new(b'\x00' + des_key[:7])
                 cipher2 = DES.new(b'\x00' + des_key[7:14])
                 #encode the flag with triple-DES
-                flag = cipher1.decrypt(cipher2.encrypt(cipher1.decrypt(unhexlify(enc_flag)))).decode()
+                flag = cipher1.decrypt(cipher2.encrypt(cipher1.decrypt(unhexlify(enc_flag))))
+                flag = flag.split("\0")[0].decode()
                 print(flag, self.flag)
                 if not flag == self.flag:
                     raise BrokenServiceException("Resulting flag was found to be incorrect")

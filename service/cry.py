@@ -54,6 +54,7 @@ def receive(flag, round_number):
 	cipher1 = DES.new(b'\x00' + key1)
 	cipher2 = DES.new(b'\x00' + key2)
 	#encode the flag with triple-DES
+	flag += b"\0" * (8- (len(flag) % 8))
 	code = hexlify(cipher1.encrypt(cipher2.decrypt(cipher1.encrypt(flag)))).decode()
 	key = hexlify(key1 + key2).decode()
 	#store data in DB
