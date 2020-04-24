@@ -15,7 +15,7 @@ def timeout_handler():
 signal.signal(signal.SIGALRM, timeout_handler)
 signal.alarm(60)
 
-conn = sqlite3.connect('flags.db')
+conn = sqlite3.connect('data/flags.db')
 cursor = conn.cursor()
 
 def process_command(input_data : bytes):
