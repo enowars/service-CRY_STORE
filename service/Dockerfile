@@ -9,6 +9,7 @@ RUN python3 -m pip install pycrypto
 
 RUN mkdir /service
 WORKDIR /service
+RUN mkdir data
 
 COPY cry.py init_client.sql checker.pubkey run.sh ./
 
