@@ -1,0 +1,8 @@
+version: "3.6"
+services:
+  cry_store:
+    build: .
+    volumes:
+      - ./data:/tmp/cry_store_data
+    ports: 
+      - "9122:1337" 
