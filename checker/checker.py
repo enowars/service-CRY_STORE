@@ -30,7 +30,7 @@ class CryStoreChecker(BaseChecker):
     havoc_count = 0
     service_name = "cry_store"
     port = (
-        1337
+        9122
     )  # The port will automatically be picked up as default by self.connect and self.http.
 
     def putflag(self):  # type: () -> None
