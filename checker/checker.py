@@ -102,6 +102,11 @@ class CryStoreChecker(BaseChecker):
                 cipher1 = DES.new(b'\x00' + des_key[:7])
                 cipher2 = DES.new(b'\x00' + des_key[7:14])
                 #encode the flag with triple-DES
+                self.debug(f"{enc_flag} {len(enc_flag)}")
+                
+                if len(flag) % 8 == 7:
+                    flag += b'b'
+                    
                 flag = cipher1.decrypt(cipher2.encrypt(cipher1.decrypt(unhexlify(enc_flag))))
                 flag = flag.split(b"\0")[0].decode()
                 print(flag, self.flag)
