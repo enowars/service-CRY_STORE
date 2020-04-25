@@ -14,5 +14,6 @@ COPY ./uwsgi.ini uwsgi.ini
 
 # here you might need to add more stuff
 COPY ./checker.py checker.py
+COPY ./checker.privkey checker.privkey
 
 ENTRYPOINT ["uwsgi", "--uid", "uwsgi", "--socket", "[::]:3031", "--protocol", "http", "--ini", "./uwsgi.ini"]
