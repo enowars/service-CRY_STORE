@@ -1,7 +1,7 @@
 create table if not exists 
-flags(
+store(
 	--id integer given by rowid
 	tick integer,
-	key BLOB,
-	encoded BLOB
+	category text,
+	data text
 );

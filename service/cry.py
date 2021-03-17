@@ -3,92 +3,95 @@
 import sys
 import os
 from binascii import unhexlify, hexlify
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import DES
 import sqlite3
+from Crypto.PublicKey import RSA
+from hashlib import sha256
 
 import signal
+from crypto import decrypt, encrypt, sign, verify
 
 def timeout_handler():
   sys.exit(0)
 
-signal.signal(signal.SIGALRM, timeout_handler)
-signal.alarm(60)
+#signal.signal(signal.SIGALRM, timeout_handler)
+#signal.alarm(60)
 
-conn = sqlite3.connect('data/flags.db')
-cursor = conn.cursor()
 
-def process_command(input_data : bytes):
-	args = input_data.split(b' ')
+class Store(object):
 
-	split = args[0].split(b':')
-	command = split[0].decode()
-	data = split[1:]
-	if data == []:
-		print("Entered line must have format \"command[:param1[:param2]] (signature)\"")
-		return
-
-	if command == 'receive':
-		try:
-			signature = args[1]
-		except:
-			print("Entered line must have format \"command[:param1[:param2]] (signature)\"")
-			return
-		key = RSA.importKey(open('checker.pubkey','r').read())
-		if not key.verify(args[0], (int(signature,16),)):
-			print("invalid signature")
-			return
+	def __init__(self):
+		if os.path.isfile('key.pem'):
+			self.key = RSA.importKey(open('key.pem','r').read())
 		else:
-			return receive(*data)
-			
-	if command == 'send_flag':
-		return send_flag(data[0].decode())
-	if command == 'send_flag_ids':
-		return send_flag_ids(data[0].decode())
+			self.key = RSA.generate(2048)
+			key_file = open('key.pem','wb')
+			key_file.write(self.key.export_key())
+			key_file.close()
+		if os.path.isfile('checker.pubkey'):
+			self.checker_key = RSA.importKey(open('checker.pubkey','r').read())
+		else:
+			raise Exception('Public Key of Checker not found')
 
-def receive(flag, round_number):
-	global conn
-	global cursor
-	key1 = os.urandom(7)	
-	key2 = os.urandom(7)	
-	cipher1 = DES.new(b'\x00' + key1)
-	cipher2 = DES.new(b'\x00' + key2)
-	#encode the flag with triple-DES
-	flag += b"\0" * (8- (len(flag) % 8))
-	code = hexlify(cipher1.encrypt(cipher2.decrypt(cipher1.encrypt(flag)))).decode()
-	key = hexlify(key1 + key2).decode()
-	#store data in DB
-	cursor.execute('insert into flags (tick, key, encoded) values (?,?,?);', [int(round_number.decode()), key, code])
-	conn.commit()
-	return f"id:{cursor.lastrowid}"
-
-def send_flag(flag_id):
-	global conn
-	global cursor
-	cursor.execute('select key, encoded from flags where rowid = ' + flag_id + ';')
-	des_key, encoded_flag = cursor.fetchone()
-	key = RSA.importKey(open('checker.pubkey','r').read())
-	enc_des_key = pow(int(des_key,16), key.e, key.n)
-	return ('%x:%s' % (enc_des_key, encoded_flag)).encode()
+		self.conn = sqlite3.connect('data/store.db')
+		self.cursor = self.conn.cursor()
 	
-def send_flag_ids(tick):
-	global conn
-	global cursor
-	cursor.execute('select rowid from flags where tick = ' + tick + ';')
-	flag_ids = cursor.fetchall()
-	print(flag_ids, file=sys.stderr)
-	return ':'.join([str(slag_id[0]) for slag_id in flag_ids])
+	def run(self):
+		try:
+			while True:
+				input_data = input("command: ").strip().encode()
+				if not input_data:
+					sys.exit(0)
+				res = self.process_command(input_data)
+				print(res, file=sys.stderr)
+				print(res)
+		except Exception as e:
+			print(e, file=sys.stdout)
 
-try:
-	if __name__ == "__main__":
-		while True:
-			input_data = input("command:").strip().encode()
-			if not input_data:
-				sys.exit(0)
-			res = process_command(input_data)
-			print(res, file=sys.stderr)
-			print(res)
+	def process_command(self, input_data : bytes) -> str:
+		args = input_data.decode().split(' ') # split signature
+		command = args[0]
 
-except Exception as e:
-	print(e, file=sys.stdout)
-	
+		if command == 'receive':
+			#checking signature
+			if len(args) != 5:
+				return "Entered line must have format \"receive encoded_key encoded_flag tick signature\""
+			signature = args[-1]
+			checker_key = RSA.importKey(open('checker.pubkey','r').read())
+			if not verify(' '.join(args[1:-1]), signature):
+				return "invalid signature"
+			else:
+				receive(*args[1:-1])
+		elif command == 'send':
+			try:
+				tick = int(args[2])
+			except ValueError:
+				return 'Second argument must be integer'
+			return self.send(args[1], tick)
+		elif command == 'send_pubkey':
+			return self.key.publickey().export_key()
+		else:
+			return 'Unknown command'
+			#print("Entered line must have format \"command [params]* [signature]\" separated by spaces")
+
+	def receive(self, enc_key, enc_data, category, tick):
+		data = decrypt(enc_data, enc_key)
+		#store data in DB
+		if all([char in string.printable for char in data]):
+			self.cursor.execute('insert into store (tick, category, data) values (?,?,?);', (int(tick), category, data))
+			self.conn.commit()
+			return sha256(data.decode()).hexdigest()
+		else:
+			return 'Data not correctly decrypted'
+
+	def send(self, category : str, tick : int) -> str:
+		self.cursor.execute('select data from store where tick = ' + str(tick) + ' and category = \'' + category + '\';')
+		content = self.cursor.fetchone()
+		if category == 'flag':
+			key = RSA.importKey(open('checker.pubkey','r').read())
+			return encrypt(content, key)
+		else:
+			return content
+
+if __name__ == "__main__":
+	store = Store()
+	store.run()
