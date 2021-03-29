@@ -4,6 +4,7 @@ import sys
 import os
 from binascii import unhexlify, hexlify
 import sqlite3
+import string
 from Crypto.PublicKey import RSA
 from hashlib import sha256
 
@@ -54,13 +55,13 @@ class Store(object):
 		if command == 'receive':
 			#checking signature
 			if len(args) != 5:
-				return "Entered line must have format \"receive encoded_key encoded_flag tick signature\""
+				return "Entered line must have format \"receive category data tick signature\""
 			signature = args[-1]
+			args = args[1:-1]
 			checker_key = RSA.importKey(open('checker.pubkey','r').read())
-			if not verify(' '.join(args[1:-1]), signature):
+			if not verify(' '.join(args), signature, checker_key):
 				return "invalid signature"
-			else:
-				receive(*args[1:-1])
+			return self.receive(*args)
 		elif command == 'send':
 			try:
 				tick = int(args[2])
@@ -73,24 +74,31 @@ class Store(object):
 			return 'Unknown command'
 			#print("Entered line must have format \"command [params]* [signature]\" separated by spaces")
 
-	def receive(self, enc_key, enc_data, category, tick):
-		data = decrypt(enc_data, enc_key)
+	def receive(self, category : str, data : str, tick : str) -> str:
+		if category == 'flag':
+			data = decrypt(data, privkey = self.key)
+		else:
+			data = unhexlify(data).decode()
 		#store data in DB
+		try:
+			tick = int(tick)
+		except ValueError:
+			return 'tick must be integer'
 		if all([char in string.printable for char in data]):
-			self.cursor.execute('insert into store (tick, category, data) values (?,?,?);', (int(tick), category, data))
+			self.cursor.execute('insert into store (tick, category, data) values (?,?,?);', (tick, category, data))
 			self.conn.commit()
-			return sha256(data.decode()).hexdigest()
+			return sha256(data.encode()).hexdigest()
 		else:
 			return 'Data not correctly decrypted'
 
 	def send(self, category : str, tick : int) -> str:
 		self.cursor.execute('select data from store where tick = ' + str(tick) + ' and category = \'' + category + '\';')
-		content = self.cursor.fetchone()
+		content = self.cursor.fetchone()[0]
 		if category == 'flag':
 			key = RSA.importKey(open('checker.pubkey','r').read())
 			return encrypt(content, key)
 		else:
-			return content
+			return hexlify(content.encode()).decode()
 
 if __name__ == "__main__":
 	store = Store()

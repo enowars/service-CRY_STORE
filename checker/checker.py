@@ -7,6 +7,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import DES
 from Crypto.Util.number import long_to_bytes, bytes_to_long
 from hashlib import sha256
+import random
 
 from crypto import decrypt, encrypt, sign, verify
 
@@ -28,12 +29,13 @@ class CryStoreChecker(BaseChecker):
 	"""
 
 	flag_count = 1
-	noise_count = 0
+	noise_count = 1
 	havoc_count = 0
 	service_name = "cry_store"
 	port = (
 		9122
 	)  # The port will automatically be picked up as default by self.connect and self.http.
+	privkey = RSA.import_key(open('checker.privkey','r').read())
 
 	def putflag(self):  # type: () -> None
 		"""
@@ -52,7 +54,7 @@ class CryStoreChecker(BaseChecker):
 					self.get_pubkey()
 				key = RSA.import_key(self.global_db[self.team])
 
-				content = encrypt(self.flag, key).replace(':',' ') + (' %d' % self.flag_round)
+				content = 'flag %s %d' % (encrypt(self.flag, key), self.flag_round)
 				signature = sign(content)
 
 				input_data = ('receive %s %s' % (content, signature)).encode()
@@ -61,8 +63,8 @@ class CryStoreChecker(BaseChecker):
 				expect_command_prompt(conn)
 				conn.write(input_data + b"\n")
 				ret_id = expect_command_prompt(conn)
-				if sha256(self.flag.decode()).hexdigest() != ret_id:
-					raise BrokenServiceException('Returned wrong flag hash')
+				if sha256(self.flag.encode()).hexdigest() != ret_id:
+					raise BrokenServiceException('Returned wrong hash')
 				conn.close()
 
 				self.team_db[self.flag] = ret_id	
@@ -100,13 +102,13 @@ class CryStoreChecker(BaseChecker):
 		try:
 			if self.flag_idx == 0:
 				conn = self.connect()
-				service_id = self.team_db[self.flag] #shouldn't it be flag-id?
-				print(service_id, type(service_id))
+				service_id = self.team_db[self.flag] #shouldn't it be flag-id? why use it at all?
+				#print(service_id, type(service_id))
 				expect_command_prompt(conn)
 				conn.write(b"send flag %d\n" % self.flag_round)
 				ciphertext = expect_command_prompt(conn).decode()
-				flag = decrypt(ciphertext)
-				print(flag, self.flag)
+				flag = decrypt(ciphertext, privkey = self.privkey)
+				#print(flag, self.flag)
 				if not flag == self.flag:
 					#error might be because of updated public key, so renew it
 					self.get_pubkey()
@@ -121,7 +123,7 @@ class CryStoreChecker(BaseChecker):
 	def putnoise(self):  # type: () -> None
 		"""
 		This method stores noise in the service. The noise should later be recoverable.
-		The difference between noise and flag is, tht noise does not have to remain secret for other teams.
+		The difference between noise and flag is, that noise does not have to remain secret for other teams.
 		This method can be called many times per round. Check how often using self.flag_idx.
 		On error, raise an EnoException.
 		:raises EnoException on error
@@ -130,12 +132,38 @@ class CryStoreChecker(BaseChecker):
 				the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
 		self.team_db["noise"] = self.noise
+		try:
+			if self.flag_idx == 0:
+				joke = random.choice(open('fly_jokes','r').read().split('\n\n'))
+				joke_hex = hexlify(joke.encode()).decode()
+				self.team_db['noise'] = joke
+
+				content = 'joke %s %d' % (joke_hex, self.flag_round)
+				signature = sign(content)
+
+				input_data = ('receive %s %s' % (content, signature)).encode()
+
+				conn = self.connect()
+				expect_command_prompt(conn)
+				conn.write(input_data + b"\n")
+				ret_id = expect_command_prompt(conn)
+				if sha256(joke.encode()).hexdigest() != ret_id:
+					raise BrokenServiceException('Returned wrong hash')
+				conn.close()
+
+				self.team_db[self.flag] = ret_id # why?
+
+		except EOFError:
+			raise OfflineException("Encountered unexpected EOF")
+		except UnicodeError:
+			self.debug("UTF8 Decoding-Error")
+			raise BrokenServiceException("Fucked UTF8")
 
 	def getnoise(self):  # type: () -> None
 		"""
 		This method retrieves noise in the service.
 		The noise to be retrieved is inside self.flag
-		The difference between noise and flag is, tht noise does not have to remain secret for other teams.
+		The difference between noise and flag is, that noise does not have to remain secret for other teams.
 		This method can be called many times per round. Check how often using flag_idx.
 		On error, raise an EnoException.
 		:raises EnoException on error
@@ -144,7 +172,22 @@ class CryStoreChecker(BaseChecker):
 				the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
 		try:
-			assert_equals(self.team_db["noise"], self.noise)
+			if self.flag_idx == 0:
+				conn = self.connect()
+				service_id = self.team_db[self.flag] #shouldn't it be flag-id? why use it at all?
+				#print(service_id, type(service_id))
+				expect_command_prompt(conn)
+				conn.write(b"send joke %d\n" % self.flag_round)
+				joke_hex = expect_command_prompt(conn).decode()
+				joke = unhexlify(joke_hey).decode()
+				#print(flag, self.flag)
+				if joke != self.team_db["noise"]:
+					raise BrokenServiceException("I didn't get the joke.")
+		except EOFError:
+			raise OfflineException("Encountered unexpected EOF")
+		except UnicodeError:
+			self.debug("UTF8 Decoding-Error")
+			raise BrokenServiceException("Fucked UTF8")
 		except KeyError:
 			raise BrokenServiceException("Noise not found!")
 
@@ -174,7 +217,7 @@ class CryStoreChecker(BaseChecker):
 		pass
 
 def expect_command_prompt(conn):
-	return conn.readline_expect(b'command:',b'command:').split(b'command')[0]
+	return conn.readline_expect(b'command: ',b'command: ').split(b'command')[0] # need colon and space in split?
 
 app = CryStoreChecker.service  # This can be used for uswgi.
 if __name__ == "__main__":
