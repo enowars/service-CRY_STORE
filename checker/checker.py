@@ -11,7 +11,7 @@ import random
 
 from crypto import decrypt, encrypt, sign, verify
 
-key = RSA.importKey(open('checker.privkey','r').read())
+private_key = RSA.importKey(open('checker.privkey','r').read())
 
 class CryStoreChecker(BaseChecker):
 	"""
@@ -35,7 +35,6 @@ class CryStoreChecker(BaseChecker):
 	port = (
 		9122
 	)  # The port will automatically be picked up as default by self.connect and self.http.
-	privkey = RSA.import_key(open('checker.privkey','r').read())
 
 	def putflag(self):  # type: () -> None
 		"""
@@ -84,10 +83,10 @@ class CryStoreChecker(BaseChecker):
 			key = RSA.import_key(ret_value)
 		except ValueError:
 			raise BrokenServiceException('Invalid public key')
-		#print(ret_value)
 		conn.close()
 
-		self.global_db[self.team] = ret_value
+		#store pubkey as string
+		self.team_db['pubkey'] = ret_value
 
 	def getflag(self):  # type: () -> None
 		"""
@@ -102,13 +101,10 @@ class CryStoreChecker(BaseChecker):
 		try:
 			if self.flag_idx == 0:
 				conn = self.connect()
-				service_id = self.team_db[self.flag] #shouldn't it be flag-id? why use it at all?
-				#print(service_id, type(service_id))
 				expect_command_prompt(conn)
 				conn.write(b"send flag %d\n" % self.flag_round)
 				ciphertext = expect_command_prompt(conn).decode()
-				flag = decrypt(ciphertext, privkey = self.privkey)
-				#print(flag, self.flag)
+				flag = decrypt(ciphertext, privkey = private_key)
 				if not flag == self.flag:
 					#error might be because of updated public key, so renew it
 					self.get_pubkey()
@@ -131,10 +127,9 @@ class CryStoreChecker(BaseChecker):
 				if nothing is returned, the service status is considered okay.
 				the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
-		self.team_db["noise"] = self.noise
 		try:
 			if self.flag_idx == 0:
-				joke = random.choice(open('fly_jokes','r').read().split('\n\n'))
+				joke = random.choice(open('jokes','r').read().split('\n\n'))
 				joke_hex = hexlify(joke.encode()).decode()
 				self.team_db['noise'] = joke
 
@@ -150,9 +145,6 @@ class CryStoreChecker(BaseChecker):
 				if sha256(joke.encode()).hexdigest() != ret_id:
 					raise BrokenServiceException('Returned wrong hash')
 				conn.close()
-
-				self.team_db[self.flag] = ret_id # why?
-
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
@@ -174,13 +166,10 @@ class CryStoreChecker(BaseChecker):
 		try:
 			if self.flag_idx == 0:
 				conn = self.connect()
-				service_id = self.team_db[self.flag] #shouldn't it be flag-id? why use it at all?
-				#print(service_id, type(service_id))
 				expect_command_prompt(conn)
 				conn.write(b"send joke %d\n" % self.flag_round)
 				joke_hex = expect_command_prompt(conn).decode()
-				joke = unhexlify(joke_hey).decode()
-				#print(flag, self.flag)
+				joke = unhexlify(joke_hex).decode()
 				if joke != self.team_db["noise"]:
 					raise BrokenServiceException("I didn't get the joke.")
 		except EOFError:
