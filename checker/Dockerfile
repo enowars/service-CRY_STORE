@@ -13,7 +13,6 @@ RUN pip3 install -r requirements.txt
 COPY ./uwsgi.ini uwsgi.ini
 
 # here you might need to add more stuff
-COPY ./checker.py checker.py
-COPY ./checker.privkey checker.privkey
+COPY ./checker.py ./checker.privkey ./crypto.py ./
 
 ENTRYPOINT ["uwsgi", "--uid", "uwsgi", "--socket", "[::]:3031", "--protocol", "http", "--ini", "./uwsgi.ini"]

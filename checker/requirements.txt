@@ -1,2 +1,2 @@
 enochecker
-pycrypto
+pycryptodome
