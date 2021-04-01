@@ -5,13 +5,13 @@ RUN apt-get install -y python3-pip
 RUN apt-get install -y socat
 RUN apt-get install -y sqlite
 
-RUN python3 -m pip install pycrypto
+RUN python3 -m pip install pycryptodome
 
 RUN mkdir /service
 WORKDIR /service
 RUN mkdir data
 
-COPY cry.py init_client.sql checker.pubkey run.sh ./
+COPY cry.py crypto.py init_client.sql checker.pubkey run.sh ./
 
 RUN groupadd -g 2000 cryptogroup \
 && useradd -m -u 2001 -g cryptogroup cryptodude

@@ -22,7 +22,13 @@ class Store(object):
 
 	def __init__(self):
 		if os.path.isfile('key.pem'):
-			self.key = RSA.importKey(open('key.pem','r').read())
+			try:
+				self.key = RSA.importKey(open('key.pem','r').read())
+			except:
+				self.key = RSA.generate(2048)
+				key_file = open('key.pem','wb')
+				key_file.write(self.key.export_key())
+				key_file.close()
 		else:
 			self.key = RSA.generate(2048)
 			key_file = open('key.pem','wb')
@@ -37,16 +43,16 @@ class Store(object):
 		self.cursor = self.conn.cursor()
 	
 	def run(self):
-		try:
-			while True:
+		while True:
+			try:
 				input_data = input("command: ").strip().encode()
 				if not input_data:
 					sys.exit(0)
 				res = self.process_command(input_data)
 				print(res, file=sys.stderr)
 				print(res)
-		except Exception as e:
-			print(e, file=sys.stdout)
+			except Exception as e:
+				print(e, file=sys.stderr)
 
 	def process_command(self, input_data : bytes) -> str:
 		args = input_data.decode().split(' ') # split signature
