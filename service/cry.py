@@ -75,7 +75,7 @@ class Store(object):
 				return 'Second argument must be integer'
 			return self.send(args[1], tick)
 		elif command == 'send_pubkey':
-			return self.key.publickey().export_key()
+			return self.key.publickey().export_key().decode()
 		else:
 			return 'Unknown command'
 			#print("Entered line must have format \"command [params]* [signature]\" separated by spaces")

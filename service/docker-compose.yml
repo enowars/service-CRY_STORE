@@ -5,4 +5,4 @@ services:
     volumes:
       - ./data:/tmp/cry_store_data
     ports: 
-      - "9122:1337" 
+      - "9122:9122" 
