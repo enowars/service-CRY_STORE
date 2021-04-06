@@ -1,2 +1,4 @@
 enochecker
 pycryptodome
+gunicorn[eventlet]
+dnspython<2
