@@ -1,8 +1,5 @@
 FROM python:3.7
 
-# Install uswgi
-RUN pip3 install uwsgi
-
 WORKDIR /checker
 
 # install requirements
