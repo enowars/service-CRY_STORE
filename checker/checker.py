@@ -32,9 +32,7 @@ class CryStoreChecker(BaseChecker):
 	noise_count = 1
 	havoc_count = 0
 	service_name = "cry_store"
-	port = (
-		9122
-	)  # The port will automatically be picked up as default by self.connect and self.http.
+	port = 9122  # The port will automatically be picked up as default by self.connect and self.http.
 
 	def putflag(self):  # type: () -> None
 		"""
@@ -51,18 +49,19 @@ class CryStoreChecker(BaseChecker):
 			if self.flag_idx == 0:
 				if self.team not in self.global_db:
 					self.get_pubkey()
-				key = RSA.import_key(self.global_db[self.team])
+				key = RSA.import_key(self.team_db['pubkey'])
 
 				content = 'flag %s %d' % (encrypt(self.flag, key), self.flag_round)
-				signature = sign(content)
+				signature = sign(content, private_key)
 
 				input_data = ('receive %s %s' % (content, signature)).encode()
-
 				conn = self.connect()
 				expect_command_prompt(conn)
 				conn.write(input_data + b"\n")
-				ret_id = expect_command_prompt(conn)
-				if sha256(self.flag.encode()).hexdigest() != ret_id:
+				ret_id = expect_command_prompt(conn).decode()
+
+				self.debug(f"ret_id: {ret_id}, {sha256(self.flag.encode()).hexdigest()}")
+				if sha256(self.flag.encode()).hexdigest() not in ret_id:
 					raise BrokenServiceException('Returned wrong hash')
 				conn.close()
 
@@ -80,6 +79,7 @@ class CryStoreChecker(BaseChecker):
 		conn.write(b"send_pubkey\n")
 		ret_value = expect_command_prompt(conn).decode()
 		try:
+			self.debug(f"KEY: {ret_value}")
 			key = RSA.import_key(ret_value)
 		except ValueError:
 			raise BrokenServiceException('Invalid public key')
@@ -134,15 +134,16 @@ class CryStoreChecker(BaseChecker):
 				self.team_db['noise'] = joke
 
 				content = 'joke %s %d' % (joke_hex, self.flag_round)
-				signature = sign(content)
+				signature = sign(content, private_key)
 
 				input_data = ('receive %s %s' % (content, signature)).encode()
 
 				conn = self.connect()
 				expect_command_prompt(conn)
 				conn.write(input_data + b"\n")
-				ret_id = expect_command_prompt(conn)
-				if sha256(joke.encode()).hexdigest() != ret_id:
+				ret_id = expect_command_prompt(conn).decode()
+				self.debug(f"joke-hash: {sha256(joke.encode()).hexdigest()}, returned {ret_id}")
+				if sha256(joke.encode()).hexdigest() == ret_id.strip():
 					raise BrokenServiceException('Returned wrong hash')
 				conn.close()
 		except EOFError:
@@ -168,8 +169,11 @@ class CryStoreChecker(BaseChecker):
 				conn = self.connect()
 				expect_command_prompt(conn)
 				conn.write(b"send joke %d\n" % self.flag_round)
-				joke_hex = expect_command_prompt(conn).decode()
+				joke_hex = expect_command_prompt(conn).decode().strip()
 				joke = unhexlify(joke_hex).decode()
+
+				joke_orig = self.team_db["noise"]
+				self.debug(f" {joke_orig}, {joke}")
 				if joke != self.team_db["noise"]:
 					raise BrokenServiceException("I didn't get the joke.")
 		except EOFError:
