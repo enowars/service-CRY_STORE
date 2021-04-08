@@ -1,7 +1,8 @@
 create table if not exists 
 store(
-	--id integer given by rowid
+	id INTEGER primary key autoincrement,
 	tick integer,
 	category text,
 	data text
 );
+

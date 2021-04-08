@@ -34,6 +34,9 @@ class CryStoreChecker(BaseChecker):
 	service_name = "cry_store"
 	port = 9122  # The port will automatically be picked up as default by self.connect and self.http.
 
+	def flag_key(self):
+		return f"flag_{self.flag_round}:{self.flag_idx}"
+
 	def putflag(self):  # type: () -> None
 		"""
 			This method stores a flag in the service.
@@ -47,8 +50,7 @@ class CryStoreChecker(BaseChecker):
 		"""
 		try:
 			if self.flag_idx == 0:
-				if self.team not in self.global_db:
-					self.get_pubkey()
+				self.get_pubkey()
 				key = RSA.import_key(self.team_db['pubkey'])
 
 				content = 'flag %s %d' % (encrypt(self.flag, key), self.flag_round)
@@ -58,20 +60,30 @@ class CryStoreChecker(BaseChecker):
 				conn = self.connect()
 				expect_command_prompt(conn)
 				conn.write(input_data + b"\n")
-				ret_id = expect_command_prompt(conn).decode()
 
-				self.debug(f"ret_id: {ret_id}, {sha256(self.flag.encode()).hexdigest()}")
-				if sha256(self.flag.encode()).hexdigest() not in ret_id:
-					raise BrokenServiceException('Returned wrong hash')
+				try:
+					ret = expect_command_prompt(conn).decode().strip().split(":")
+					ret_hash = ret[0]
+					ret_id = ret[1]
+				except IndexError:
+					conn.close()
+					raise BrokenServiceException("Failed to parse hash")
+
 				conn.close()
 
-				self.team_db[self.flag] = ret_id	
+				self.debug(f"FLAG-hash: {sha256(self.flag.encode()).hexdigest().encode()}, returned {ret_hash.strip().encode()}")
+				if sha256(self.flag.encode()).hexdigest() != ret_hash.strip():
+					raise BrokenServiceException('Returned wrong hash')
+
+
+				self.team_db[self.flag_key()] = ret_id
 
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
 			self.debug("UTF8 Decoding-Error")
 			raise BrokenServiceException("Fucked UTF8")
+
 	
 	def get_pubkey(self):
 		conn = self.connect()
@@ -102,9 +114,20 @@ class CryStoreChecker(BaseChecker):
 			if self.flag_idx == 0:
 				conn = self.connect()
 				expect_command_prompt(conn)
-				conn.write(b"send flag %d\n" % self.flag_round)
+
+				try:
+					flag_id = self.team_db[self.flag_key()]
+				except IndexError:
+					raise BrokenServiceException("Checked flag was not successfully deployed")
+
+				conn.write(f"send {flag_id}\n".encode())
 				ciphertext = expect_command_prompt(conn).decode()
-				flag = decrypt(ciphertext, privkey = private_key)
+				try:
+					flag = decrypt(ciphertext, privkey = private_key)
+				except Exception:
+					self.debug(f"Failed to decrypt {ciphertext.encode()}")
+					raise BrokenServiceException("Flag-Decryption failed")
+
 				if not flag == self.flag:
 					#error might be because of updated public key, so renew it
 					self.get_pubkey()
@@ -115,6 +138,9 @@ class CryStoreChecker(BaseChecker):
 		except UnicodeError:
 			self.debug("UTF8 Decoding-Error")
 			raise BrokenServiceException("Fucked UTF8")
+
+	def noise_key(self):
+		return f"noise_{self.flag_round}:{self.flag_idx}"
 
 	def putnoise(self):  # type: () -> None
 		"""
@@ -131,7 +157,6 @@ class CryStoreChecker(BaseChecker):
 			if self.flag_idx == 0:
 				joke = random.choice(open('jokes','r').read().split('\n\n'))
 				joke_hex = hexlify(joke.encode()).decode()
-				self.team_db['noise'] = joke
 
 				content = 'joke %s %d' % (joke_hex, self.flag_round)
 				signature = sign(content, private_key)
@@ -141,11 +166,25 @@ class CryStoreChecker(BaseChecker):
 				conn = self.connect()
 				expect_command_prompt(conn)
 				conn.write(input_data + b"\n")
-				ret_id = expect_command_prompt(conn).decode()
-				self.debug(f"joke-hash: {sha256(joke.encode()).hexdigest()}, returned {ret_id}")
-				if sha256(joke.encode()).hexdigest() == ret_id.strip():
-					raise BrokenServiceException('Returned wrong hash')
+
+				try:
+					ret = expect_command_prompt(conn).decode().strip().split(":")
+					self.debug(f"Service returned: \"{ret}\"")
+					ret_hash = ret[0]
+					joke_id = ret[1]
+				except IndexError:
+					conn.close()
+					raise BrokenServiceException("Failed to parse hash")
+
 				conn.close()
+				self.debug(f"joke-hash: {sha256(joke.encode()).hexdigest().encode()}, returned {ret_hash.strip().encode()}")
+
+				if sha256(joke.encode()).hexdigest() != ret_hash.strip():
+					raise BrokenServiceException('Returned wrong hash')
+
+				self.team_db[self.noise_key() + "joke"] = joke
+				self.team_db[self.noise_key() + "joke_id"] = joke_id
+
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
@@ -168,14 +207,16 @@ class CryStoreChecker(BaseChecker):
 			if self.flag_idx == 0:
 				conn = self.connect()
 				expect_command_prompt(conn)
-				conn.write(b"send joke %d\n" % self.flag_round)
+				joke_id = self.team_db[self.noise_key() + "joke_id"]
+				conn.write(f"send {joke_id}\n".encode() )
 				joke_hex = expect_command_prompt(conn).decode().strip()
 				joke = unhexlify(joke_hex).decode()
 
-				joke_orig = self.team_db["noise"]
-				self.debug(f" {joke_orig}, {joke}")
-				if joke != self.team_db["noise"]:
+				joke_orig = self.team_db[self.noise_key() + "joke"]
+				self.debug(f"{joke_orig}, {joke}")
+				if joke != joke_orig:
 					raise BrokenServiceException("I didn't get the joke.")
+
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:

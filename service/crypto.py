@@ -61,7 +61,8 @@ def encrypt(message : str, pubkey = None):
 	enc_flag = hexlify(cipher1.encrypt(cipher2.decrypt(cipher1.encrypt(message)))).decode()
 	key = key1 + key2
 	if pubkey is not None:
-		enc_key = hex(pow(bytes_to_long(key), pubkey.e, pubkey.n))[2:]
+		rsapad = b"" * 100
+		enc_key = hex(pow(bytes_to_long(rsapad + key), pubkey.e, pubkey.n))[2:]
 	else:
 		enc_key = hexlify(key).decode()
 	return '%s:%s' % (enc_flag, enc_key)

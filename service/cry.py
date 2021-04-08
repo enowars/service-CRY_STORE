@@ -70,10 +70,10 @@ class Store(object):
 			return self.receive(*args)
 		elif command == 'send':
 			try:
-				tick = int(args[2])
+				tick = int(args[1])
 			except ValueError:
-				return 'Second argument must be integer'
-			return self.send(args[1], tick)
+				print('First argument must be integer')
+			return self.send(args[1])
 		elif command == 'send_pubkey':
 			return self.key.publickey().export_key().decode()
 		else:
@@ -93,13 +93,17 @@ class Store(object):
 		if all([char in string.printable for char in data]):
 			self.cursor.execute('insert into store (tick, category, data) values (?,?,?);', (tick, category, data))
 			self.conn.commit()
-			return sha256(data.encode()).hexdigest()
+			return sha256(data.encode()).hexdigest() + f":{self.cursor.lastrowid}"
 		else:
-			return 'Data not correctly decrypted'
+			return f'Data not correctly decrypted: {data.encode()}'
 
-	def send(self, category : str, tick : int) -> str:
-		self.cursor.execute('select data from store where tick = ' + str(tick) + ' and category = \'' + category + '\';')
-		content = self.cursor.fetchone()[0]
+	def send(self, flag_id : int) -> str:
+		self.cursor.execute('select data,category from store where id = ' + str(flag_id) + ';')
+		try:
+			content, category = self.cursor.fetchone()
+		except TypeError:
+			return "Key not in Database"
+		print(content, category, file=sys.stderr)
 		if category == 'flag':
 			key = RSA.importKey(open('checker.pubkey','r').read())
 			return encrypt(content, key)
