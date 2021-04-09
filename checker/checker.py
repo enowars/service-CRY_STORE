@@ -2,7 +2,9 @@
 #!/usr/bin/env python3
 from enochecker import *
 
+import binascii
 from binascii import unhexlify, hexlify
+
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import DES
 from Crypto.Util.number import long_to_bytes, bytes_to_long
@@ -53,13 +55,15 @@ class CryStoreChecker(BaseChecker):
 				self.get_pubkey()
 				key = RSA.import_key(self.team_db['pubkey'])
 
+				conn = self.connect()
+				expect_command_prompt(conn)
+
 				content = 'flag %s %d' % (encrypt(self.flag, key), self.flag_round)
 				signature = sign(content, private_key)
 
 				input_data = ('receive %s %s' % (content, signature)).encode()
-				conn = self.connect()
-				expect_command_prompt(conn)
 				conn.write(input_data + b"\n")
+				self.debug(f"Sent msg to client: {input_data}")
 
 				try:
 					ret = expect_command_prompt(conn).decode().strip().split(":")
@@ -210,7 +214,12 @@ class CryStoreChecker(BaseChecker):
 				joke_id = self.team_db[self.noise_key() + "joke_id"]
 				conn.write(f"send {joke_id}\n".encode() )
 				joke_hex = expect_command_prompt(conn).decode().strip()
-				joke = unhexlify(joke_hex).decode()
+				self.debug(f"joke recieved: {joke_hex}, len {len(joke_hex)}")
+				try:
+					joke = unhexlify(joke_hex).decode()
+				except binascii.Error:
+					self.debug("failed to decode joke-hex")
+					raise BrokenServiceException("Retrieved invalid joke")
 
 				joke_orig = self.team_db[self.noise_key() + "joke"]
 				self.debug(f"{joke_orig}, {joke}")
@@ -251,7 +260,7 @@ class CryStoreChecker(BaseChecker):
 		pass
 
 def expect_command_prompt(conn):
-	return conn.readline_expect(b'command: ',b'command: ').split(b'command')[0] # need colon and space in split?
+	return conn.readline_expect(b'command: ',b'command: ').split(b'command: ')[0] # need colon and space in split?
 
 app = CryStoreChecker.service  # This can be used for uswgi.
 if __name__ == "__main__":
