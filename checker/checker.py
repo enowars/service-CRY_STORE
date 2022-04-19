@@ -33,6 +33,7 @@ class CryStoreChecker(BaseChecker):
 	flag_count = 1
 	noise_count = 1
 	havoc_count = 0
+	exploit_variants = 0
 	service_name = "cry_store"
 	port = 9122  # The port will automatically be picked up as default by self.connect and self.http.
 
