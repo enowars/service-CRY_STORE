@@ -30,15 +30,15 @@ class CryStoreChecker(BaseChecker):
 	(Or read the source, Luke)
 	"""
 
-	flag_count = 1
-	noise_count = 1
-	havoc_count = 0
-	exploit_variants = 0
+	flag_variants = 1
+	noise_variants = 1
+	havoc_variants = 0
+	exploit_variants=0
 	service_name = "cry_store"
 	port = 9122  # The port will automatically be picked up as default by self.connect and self.http.
 
 	def flag_key(self):
-		return f"flag_{self.flag_round}:{self.flag_idx}"
+		return f"flag_{self.related_round_id}:{self.variant_id}"
 
 	def putflag(self):  # type: () -> None
 		"""
@@ -52,14 +52,14 @@ class CryStoreChecker(BaseChecker):
 					the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
 		try:
-			if self.flag_idx == 0:
+			if self.variant_id == 0:
 				self.get_pubkey()
 				key = RSA.import_key(self.team_db['pubkey'])
 
 				conn = self.connect()
 				expect_command_prompt(conn)
 
-				content = 'flag %s %d' % (encrypt(self.flag, key), self.flag_round)
+				content = 'flag %s %d' % (encrypt(self.flag, key), self.related_round_id)
 				signature = sign(content, private_key)
 
 				input_data = ('receive %s %s' % (content, signature)).encode()
@@ -116,7 +116,7 @@ class CryStoreChecker(BaseChecker):
 				the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
 		try:
-			if self.flag_idx == 0:
+			if self.variant_id == 0:
 				conn = self.connect()
 				expect_command_prompt(conn)
 
@@ -145,7 +145,7 @@ class CryStoreChecker(BaseChecker):
 			raise BrokenServiceException("Fucked UTF8")
 
 	def noise_key(self):
-		return f"noise_{self.flag_round}:{self.flag_idx}"
+		return f"noise_{self.related_round_id}:{self.variant_id}"
 
 	def putnoise(self):  # type: () -> None
 		"""
@@ -159,11 +159,11 @@ class CryStoreChecker(BaseChecker):
 				the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
 		try:
-			if self.flag_idx == 0:
+			if self.variant_id == 0:
 				joke = random.choice(open('jokes','r').read().split('\n\n'))
 				joke_hex = hexlify(joke.encode()).decode()
 
-				content = 'joke %s %d' % (joke_hex, self.flag_round)
+				content = 'joke %s %d' % (joke_hex, self.related_round_id)
 				signature = sign(content, private_key)
 
 				input_data = ('receive %s %s' % (content, signature)).encode()
@@ -209,7 +209,7 @@ class CryStoreChecker(BaseChecker):
 				the preferred way to report errors in the service is by raising an appropriate enoexception
 		"""
 		try:
-			if self.flag_idx == 0:
+			if self.variant_id == 0:
 				conn = self.connect()
 				expect_command_prompt(conn)
 				joke_id = self.team_db[self.noise_key() + "joke_id"]
