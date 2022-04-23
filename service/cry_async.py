@@ -90,6 +90,7 @@ class Store(object):
                 tick = int(args[1])
             except ValueError:
                 self.tx.write(b'First argument must be integer\n')
+                return
             await self.send(args[1])
 
         elif command == 'send_pubkey':
