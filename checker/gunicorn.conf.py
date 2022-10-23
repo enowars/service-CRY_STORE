@@ -1,6 +1,6 @@
 import multiprocessing
 
-worker_class = "eventlet"
+# worker_class = "eventlet"
 workers = multiprocessing.cpu_count()*2+1
 bind = "0.0.0.0:3031"
 timeout = 90
