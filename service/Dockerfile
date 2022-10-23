@@ -19,6 +19,5 @@ RUN groupadd -g 2000 cryptogroup \
 
 RUN chown -R cryptodude /service
 RUN chmod +x cry_async.py run.sh
-USER cryptodude
 
 CMD ["/service/run.sh"]

@@ -3,6 +3,6 @@ services:
   cry_store:
     build: .
     volumes:
-      - ./data:/tmp/cry_store_data
+      - ./data:/service/data
     ports: 
       - "9122:9122" 
