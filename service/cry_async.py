@@ -42,7 +42,7 @@ class Store(object):
         self.tx = tx
     
     async def run(self):
-        self.tx.write(b"Send command to execute, format: `<command> <args> ...`\n")
+        self.tx.write(b"Send command to execute, format: `<load|store|send_pubkey> <args> ...`\n")
         await self.tx.drain()
         while True:
             try:
