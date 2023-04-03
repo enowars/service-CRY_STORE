@@ -58,9 +58,9 @@ def test_store_get_joke():
 	for _ in range(5):
 		tick = random.randint(1, 1<<32)
 		joke = 'Why did the fly fly? Because the spider spied \'er.'
-		res = service.receive('joke', hexlify(joke.encode()).decode(), str(tick))
+		res = service.handle_store('joke', hexlify(joke.encode()).decode(), str(tick))
 		assert res == sha256(joke.encode()).hexdigest()
-		res = service.send('joke', tick)
+		res = service.handle_load('joke', tick)
 		assert joke == unhexlify(res).decode()
 
 def test_store_get_flag():
@@ -73,10 +73,10 @@ def test_store_get_flag():
 
 		data = encrypt(flag, pubkey)
 
-		res = service.receive('flag', data, str(tick))
+		res = service.handle_store('flag', data, str(tick))
 		assert res == sha256(flag.encode()).hexdigest()
-		res = service.send('flag', tick)
-		test_flag = decrypt(service.send('flag',tick), privkey = privkey)
+		res = service.handle_load('flag', tick)
+		test_flag = decrypt(service.handle_load('flag',tick), privkey = privkey)
 		assert test_flag == flag
 
 def test_command_flag():
@@ -89,10 +89,10 @@ def test_command_flag():
 
 		data = encrypt(flag, pubkey)
 		content = 'flag %s %d' % (data, tick)
-		res = service.process_command(('receive %s %s' % (content, sign(content, privkey))).encode())
+		res = service.process_command(('store %s %s' % (content, sign(content, privkey))).encode())
 		assert res == sha256(flag.encode()).hexdigest()
 
-		input_command = ('send flag %d' % tick).encode()
+		input_command = ('load flag %d' % tick).encode()
 		res = service.process_command(input_command)
 		test_flag = decrypt(res, privkey = privkey)
 		assert test_flag == flag
@@ -105,10 +105,10 @@ def test_command_joke():
 	joke = 'How do you call a fly without wings? - A walk.'
 
 	content = 'joke %s %d' % (hexlify(joke.encode()).decode(), tick)
-	res = service.process_command(('receive %s %s' % (content, sign(content, privkey))).encode())
+	res = service.process_command(('store %s %s' % (content, sign(content, privkey))).encode())
 	assert res == sha256(joke.encode()).hexdigest()
 
-	input_command = ('send joke %d' % tick).encode()
+	input_command = ('load joke %d' % tick).encode()
 	res = service.process_command(input_command)
 	test_flag = decrypt(res, privkey = privkey)
 	assert test_flag == flag

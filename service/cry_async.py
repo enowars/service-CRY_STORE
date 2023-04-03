@@ -12,9 +12,6 @@ import aiosqlite
 
 from crypto import decrypt, encrypt, sign, verify
 
-# def timeout_handler():
-#     print("TIMEOUT!")
-#     os._exit(os.EX_OK)
 
 if os.path.isfile('key.pem'):
     try:
@@ -45,6 +42,8 @@ class Store(object):
         self.tx = tx
     
     async def run(self):
+        self.tx.write(b"Send command to execute, format: `<command> <args> ...`\n")
+        await self.tx.drain()
         while True:
             try:
                 self.tx.write(b"command: ")
@@ -71,10 +70,10 @@ class Store(object):
         args = input_data.decode().split(' ') # split signature
         command = args[0]
 
-        if command == 'receive':
+        if command == 'store':
             #checking signature
             if len(args) != 5:
-                self.tx.write(b"Entered line must have format \"receive category data tick signature\"\n")
+                self.tx.write(b"Entered line must have format \"store category data tick signature\"\n")
                 return
 
             signature = args[-1]
@@ -83,14 +82,14 @@ class Store(object):
                 self.tx.write(b"invalid signature\n")
                 return
 
-            await self.receive(*args)
+            await self.handle_store(*args)
 
-        elif command == 'send':
+        elif command == 'load':
             try:
                 tick = int(args[1])
             except ValueError:
                 self.tx.write(b'First argument must be integer\n')
-            await self.send(args[1])
+            await self.handle_load(args[1])
 
         elif command == 'send_pubkey':
             self.tx.write(PUBLIC_KEY + b'\n')
@@ -98,7 +97,7 @@ class Store(object):
             self.tx.write(b'Unknown command\n')
             #print("Entered line must have format \"command [params]* [signature]\" separated by spaces")
 
-    async def receive(self, category : str, data : str, tick : str) -> str:
+    async def handle_store(self, category : str, data : str, tick : str) -> str:
         if category == 'flag':
             data = decrypt(data, privkey = KEY)
         else:
@@ -123,7 +122,7 @@ class Store(object):
         else:
             self.tx.write(f'Data not correctly decrypted: {data.encode()}\n'.encode())
 
-    async def send(self, flag_id : int) -> str:
+    async def handle_load(self, flag_id : int) -> str:
         async with DB_CONN.execute('select data,category from store where id = ' + str(flag_id) + ';') as cursor:
             try:
                 content, category = await cursor.fetchone() 

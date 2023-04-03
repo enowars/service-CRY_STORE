@@ -62,7 +62,7 @@ class CryStoreChecker(BaseChecker):
 				content = 'flag %s %d' % (encrypt(self.flag, key), self.related_round_id)
 				signature = sign(content, private_key)
 
-				input_data = ('receive %s %s' % (content, signature)).encode()
+				input_data = ('store %s %s' % (content, signature)).encode()
 				conn.write(input_data + b"\n")
 				self.debug(f"Sent msg to client: {input_data}")
 
@@ -82,7 +82,8 @@ class CryStoreChecker(BaseChecker):
 
 
 				self.team_db[self.flag_key()] = ret_id
-
+			else:
+				raise BrokenCheckerException("Invalid variant_id")
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
@@ -122,10 +123,10 @@ class CryStoreChecker(BaseChecker):
 
 				try:
 					flag_id = self.team_db[self.flag_key()]
-				except IndexError:
+				except KeyError:
 					raise BrokenServiceException("Checked flag was not successfully deployed")
 
-				conn.write(f"send {flag_id}\n".encode())
+				conn.write(f"load {flag_id}\n".encode())
 				ciphertext = expect_command_prompt(conn).decode()
 				try:
 					flag = decrypt(ciphertext, privkey = private_key)
@@ -137,7 +138,8 @@ class CryStoreChecker(BaseChecker):
 					#error might be because of updated public key, so renew it
 					self.get_pubkey()
 					raise BrokenServiceException("Resulting flag was found to be incorrect")
-
+			else:
+				raise BrokenCheckerException("Invalid variant_id")
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
@@ -166,7 +168,7 @@ class CryStoreChecker(BaseChecker):
 				content = 'joke %s %d' % (joke_hex, self.related_round_id)
 				signature = sign(content, private_key)
 
-				input_data = ('receive %s %s' % (content, signature)).encode()
+				input_data = ('store %s %s' % (content, signature)).encode()
 
 				conn = self.connect()
 				expect_command_prompt(conn)
@@ -190,6 +192,9 @@ class CryStoreChecker(BaseChecker):
 				self.team_db[self.noise_key() + "joke"] = joke
 				self.team_db[self.noise_key() + "joke_id"] = joke_id
 
+			else:
+				raise BrokenCheckerException("Invalid variant_id")
+			
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
@@ -213,9 +218,9 @@ class CryStoreChecker(BaseChecker):
 				conn = self.connect()
 				expect_command_prompt(conn)
 				joke_id = self.team_db[self.noise_key() + "joke_id"]
-				conn.write(f"send {joke_id}\n".encode() )
+				conn.write(f"load {joke_id}\n".encode() )
 				joke_hex = expect_command_prompt(conn).decode().strip()
-				self.debug(f"joke recieved: {joke_hex}, len {len(joke_hex)}")
+				self.debug(f"joke received: {joke_hex}, len {len(joke_hex)}")
 				try:
 					joke = unhexlify(joke_hex).decode()
 				except binascii.Error:
@@ -226,7 +231,10 @@ class CryStoreChecker(BaseChecker):
 				self.debug(f"{joke_orig}, {joke}")
 				if joke != joke_orig:
 					raise BrokenServiceException("I didn't get the joke.")
-
+				
+			else:
+				raise BrokenCheckerException("Invalid variant_id")
+			
 		except EOFError:
 			raise OfflineException("Encountered unexpected EOF")
 		except UnicodeError:
@@ -245,9 +253,11 @@ class CryStoreChecker(BaseChecker):
 				The preferred way to report Errors in the service is by raising an appropriate EnoException
 		"""
 		self.info("I wanted to inform you: I'm  running <3")
-		self.http_get(
-			"/"
-		)  # This will probably fail, depending on what params you give the script. :)
+
+		# 	self.http_get(
+		# 	"/"
+		# )  # This will probably fail, depending on what params you give the script. :)
+		raise BrokenCheckerException("Invalid variant_id")
 
 	def exploit(self):
 		"""
