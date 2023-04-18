@@ -81,7 +81,9 @@ class CryStoreChecker(BaseChecker):
 					raise BrokenServiceException('Returned wrong hash')
 
 
-				self.team_db[self.flag_key()] = ret_id
+				self.team_db[self.flag_key()] = f"Id: {ret_id}"
+				return ret_id
+
 			else:
 				raise BrokenCheckerException("Invalid variant_id")
 		except EOFError:
