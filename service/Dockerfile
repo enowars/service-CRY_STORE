@@ -1,12 +1,12 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get install -y python3-pip
 # RUN apt-get install -y socat
-RUN apt-get install -y sqlite
+RUN apt-get install -y sqlite3
 
-RUN python3 -m pip install pycryptodome
-RUN python3 -m pip install aiosqlite
+RUN python3 -m pip install pycryptodome --break-system-packages
+RUN python3 -m pip install aiosqlite --break-system-packages
 
 RUN mkdir /service
 WORKDIR /service

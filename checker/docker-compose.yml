@@ -1,4 +1,4 @@
-version: '3'
+name: crystore_checker
 
 services:
   cry_store-backend:
@@ -19,3 +19,7 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ipv6islove
       MONGO_INITDB_ROOT_PASSWORD: dockerislove
+
+networks:
+  default:
+    name: crystore_checker
